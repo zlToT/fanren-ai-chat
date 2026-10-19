@@ -1,1 +1,166 @@
-<h1 style="font-family:sans-serif">API 服务运行中 ✅</h1>
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>凡人修仙传 · 知识库问答</title>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #e2b714;
+            font-size: 22px;
+        }
+
+        #chat {
+            height: 420px;
+            overflow-y: auto;
+            background: #16213e;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .user,
+        .bot {
+            margin: 10px 0;
+            line-height: 1.7;
+            white-space: pre-wrap;
+        }
+
+        .user {
+            color: #7ec8ff;
+        }
+
+        .bot {
+            color: #f0f0f0;
+        }
+
+        .bot::before {
+            content: "🧙 ";
+        }
+
+        .user::before {
+            content: "🧑‍🎓 ";
+        }
+
+        #inputbar {
+            display: flex;
+            gap: 8px;
+        }
+
+        #input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background: #0f3460;
+            color: #fff;
+            font-size: 15px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: #e2b714;
+            color: #1a1a2e;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: .5;
+            cursor: wait;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>凡人修仙传 · 知识库问答</h1>
+    <div id="chat"></div>
+    <div id="inputbar">
+        <input id="input" placeholder="例如：妖虫有多少血？" autofocus>
+        <button id="send">发送</button>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+
+        const chat = document.getElementById('chat');
+        const input = document.getElementById('input');
+        const sendBtn = document.getElementById('send');
+
+        async function ask() {
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+            sendBtn.disabled = true;
+
+            const userDiv = document.createElement('div');
+            userDiv.className = 'user';
+            userDiv.textContent = text;
+            chat.appendChild(userDiv);
+
+            const botDiv = document.createElement('div');
+            botDiv.className = 'bot';
+            chat.appendChild(botDiv);
+            chat.scrollTop = chat.scrollHeight;
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buf = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buf += decoder.decode(value, { stream: true });
+
+                    const events = buf.split('\n\n');
+                    buf = events.pop();
+
+                    for (const ev of events) {
+                        for (const line of ev.split('\n')) {
+                            if (!line.startsWith('data:')) continue;
+                            const payload = line.slice(5).trim();
+                            if (payload === '[DONE]') continue;
+                            try {
+                                const j = JSON.parse(payload);
+                                const piece = j.content?.answer ?? j.content ?? '';
+                                if (piece) {
+                                    botDiv.textContent += piece;
+                                    chat.scrollTop = chat.scrollHeight;
+                                }
+                            } catch (e) { /* 忽略无法解析的行 */ }
+                        }
+                    }
+                }
+            } catch (err) {
+                botDiv.textContent += '【出错】' + err.message;
+            }
+            sendBtn.disabled = false;
+            input.focus();
+        }
+
+        sendBtn.onclick = ask;
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
+    </script>
+</body>
+
+</html>
