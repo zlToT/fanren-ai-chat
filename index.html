@@ -142,7 +142,13 @@
                             if (payload === '[DONE]') continue;
                             try {
                                 const j = JSON.parse(payload);
-                                const piece = j.content?.answer ?? j.content ?? '';
+                                let c = j.content;
+                                let piece = '';
+                                if (typeof c === 'string') piece = c;
+                                else if (c && typeof c === 'object') {
+                                    piece = c.answer ?? c.text ?? c.content?.text
+                                        ?? (typeof c.content === 'string' ? c.content : '');
+                                }
                                 if (piece) {
                                     botDiv.textContent += piece;
                                     chat.scrollTop = chat.scrollHeight;

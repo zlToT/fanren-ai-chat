@@ -28,6 +28,14 @@ export async function onRequestPost(context) {
     }),
   });
 
+  if (!upstream.ok) {
+    const errText = await upstream.text();
+    return new Response(JSON.stringify({ error: errText }), {
+      status: upstream.status,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
+  }
+
   return new Response(upstream.body, {
     headers: {
       'Content-Type': 'text/event-stream',
